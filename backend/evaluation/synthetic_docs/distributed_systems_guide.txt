@@ -1,0 +1,24 @@
+Distributed Systems Engineering Principles
+Document Code: DIST-SYS-GUIDE
+Author: Principal Systems Architect
+
+1. Consensus Protocols & Leader Election
+Our core coordination layer uses the Raft consensus algorithm rather than multi-Paxos.
+Election timeouts are randomized uniformly between 150ms and 300ms to avoid split votes.
+Heartbeat intervals from the elected leader are transmitted every 50ms to follower nodes.
+A quorum of nodes (N/2 + 1) is strictly required to commit an entry into the replicated state machine.
+
+2. Consistency Models & CAP Theorem Trade-offs
+The data platform is partitioned into two distinct persistence tiers:
+- The Metadata and Identity Tier uses CockroachDB, prioritizing Consistency and Partition Tolerance (CP system) with serializable snapshot isolation.
+- The Telemetry and Analytics Tier utilizes DynamoDB with eventually consistent reads (AP system) to sustain 500,000 writes per second.
+
+3. Idempotency & Message Deduplication
+To guarantee exactly-once processing semantics across network retries, all mutating REST and gRPC API endpoints require an Idempotency-Key header formatted as a UUIDv4.
+Idempotency keys are cached in Redis cluster with a Time-To-Live (TTL) of 86,400 seconds (24 hours).
+
+4. Failure Detection & Gossip Protocols
+Worker node health is monitored using the SWICL gossip-based failure detector protocol.
+Gossip ping messages are dispatched every 500 milliseconds across random peers.
+Nodes that fail to reply to indirect ping checks within 2000 milliseconds are marked as suspect.
+If suspected nodes do not recover within 5000 milliseconds, they are automatically removed from the active cluster ring.
